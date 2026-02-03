@@ -61,7 +61,7 @@ void KbI2cBase::setKbBacklight(bool on)
         kbBlOn = on;
         // Some T-Deck keyboards seem to echo state/bytes back into the read stream.
         // Briefly ignore reads so auto mode doesn't immediately re-trigger.
-        kbBlIgnoreUntilMs = millis() + 250;
+        kbBlIgnoreUntilMs = millis() + 1000;
         return;
     }
 
@@ -600,14 +600,29 @@ int32_t KbI2cBase::runOnce()
             }
 
             if (e.inputEvent != INPUT_BROKER_NONE) {
-                // Auto mode: only treat *real* key events as activity.
+                // Auto mode: only treat meaningful user keys as activity.
                 // Also ignore a short window after we send backlight I2C commands.
                 if (kbBlAuto) {
                     uint32_t now = millis();
                     if (now >= kbBlIgnoreUntilMs) {
-                        kbBlLastActivityMs = now;
-                        if (!kbBlOn)
-                            setKbBacklight(true);
+                        // Prefer decoded kbchar, but for nav keys kbchar is 0 so use raw byte.
+                        uint8_t raw = (uint8_t)c;
+                        uint8_t activityCode = e.kbchar ? (uint8_t)e.kbchar : raw;
+
+                        bool meaningful = false;
+                        if (activityCode >= 32 && activityCode <= 126) {
+                            meaningful = true; // printable typing
+                        } else if (activityCode == 0x0d || activityCode == 0x08 || activityCode == 0x1b) {
+                            meaningful = true; // enter/back/esc
+                        } else if (activityCode == 0xb4 || activityCode == 0xb5 || activityCode == 0xb6 || activityCode == 0xb7) {
+                            meaningful = true; // arrows
+                        }
+
+                        if (meaningful) {
+                            kbBlLastActivityMs = now;
+                            if (!kbBlOn)
+                                setKbBacklight(true);
+                        }
                     }
                 }
 
