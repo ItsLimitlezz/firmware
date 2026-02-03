@@ -166,6 +166,22 @@ void TDeckProKeyboard::released()
     uint32_t now = millis();
     last_tap = now;
 
+    // Hard-override for ALT+V: some builds/keymaps were still falling through and typing 'v'.
+    // v key index in TDeckProTapMap is 25 (0-based). ALT modifier is modifierAlt.
+    if (last_key == 25 && (modifierFlag & modifierAlt)) {
+        kbBacklightAuto = !kbBacklightAuto;
+        if (kbBacklightAuto) {
+            kbBacklightLastActivityMs = millis();
+            setBacklight(true);
+        } else {
+            kbBacklightLastActivityMs = 0;
+            setBacklight(false);
+        }
+        // clear modifier after command
+        modifierFlag = 0;
+        return;
+    }
+
     auto mapped = TDeckProTapMap[last_key][modifierFlag % TDeckProTapMod[last_key]];
 
     if (mapped == Key::BL_TOGGLE) {
@@ -185,6 +201,7 @@ void TDeckProKeyboard::released()
             kbBacklightLastActivityMs = 0;
             setBacklight(false);
         }
+        modifierFlag = 0;
         return;
     }
 
