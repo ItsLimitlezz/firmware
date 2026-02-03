@@ -425,6 +425,12 @@ int32_t KbI2cBase::runOnce()
         if (i2cBus->available()) {
             char c = i2cBus->read();
 
+            // DEBUG: log raw keycodes for T-Deck keyboard combos (helps diagnose ALT+? behavior)
+            // Log only for interesting keys to avoid spamming.
+            if ((uint8_t)c == 0x0c || (uint8_t)c == 0xAA || (uint8_t)c == 'v' || (uint8_t)c == 'b') {
+                LOG_DEBUG("TDECKKB key=0x%02X ('%c') is_sym=%d", (uint8_t)c, (c >= 32 && c <= 126) ? c : '.', is_sym);
+            }
+
             // Auto mode: any key activity turns on keyboard backlight and resets timer
             if (kbBlAuto && c != 0x00) {
                 kbBlLastActivityMs = millis();
