@@ -54,14 +54,16 @@ void KbI2cBase::setKbBacklight(bool on)
     // The backlight appears to be handled by the keyboard MCU, so we attempt a best-effort I2C command.
     // If the command is unsupported, it will simply be ignored.
     if (kb_model == 0x10 && i2cBus && cardkb_found.address == TDECK_KB_ADDR) {
-        // Empirical attempt: write single byte 0x01 (on) / 0x00 (off)
-        i2cBus->beginTransmission((int)cardkb_found.address);
-        i2cBus->write(on ? 0x01 : 0x00);
-        i2cBus->endTransmission();
-        kbBlOn = on;
-        // Some T-Deck keyboards seem to echo state/bytes back into the read stream.
-        // Briefly ignore reads so auto mode doesn't immediately re-trigger.
-        kbBlIgnoreUntilMs = millis() + 1000;
+        // Regular T-Deck: keyboard MCU appears to own the backlight. Instead of 0/1,
+        // we send a best-effort TOGGLE command. (0xAA is already used as the "fn+b" special code)
+        // Only toggle when changing state.
+        if (kbBlOn != on) {
+            i2cBus->beginTransmission((int)cardkb_found.address);
+            i2cBus->write((uint8_t)0xAA);
+            i2cBus->endTransmission();
+            kbBlOn = on;
+            kbBlIgnoreUntilMs = millis() + 1000;
+        }
         return;
     }
 
