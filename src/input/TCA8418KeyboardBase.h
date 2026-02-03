@@ -27,6 +27,7 @@ class TCA8418KeyboardBase
         MUTE_TOGGLE = 0xAC,
         SEND_PING = 0xAF,
         BL_TOGGLE = 0xAB,
+        BL_AUTO_TOGGLE = 0xAD,
         FUNCTION_F1 = 0xF1,
         FUNCTION_F2 = 0xF2,
         FUNCTION_F3 = 0xF3,

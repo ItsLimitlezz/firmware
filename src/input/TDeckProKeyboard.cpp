@@ -49,7 +49,7 @@ static unsigned char TDeckProTapMap[_TCA8418_NUM_KEYS][5] = {
     {'m', 'M', '.', 0x00, Key::MUTE_TOGGLE},
     {'n', 'N', ','},
     {'b', 'B', '!', 0x00, Key::BL_TOGGLE},
-    {'v', 'V', '?'},
+    {'v', 'V', '?', 0x00, Key::BL_AUTO_TOGGLE},
     {'c', 'C', '9'},
     {'x', 'X', '8', 0x00, Key::DOWN},
     {'z', 'Z', '7'},
@@ -77,6 +77,14 @@ void TDeckProKeyboard::reset()
 // handle multi-key presses (shift and alt)
 void TDeckProKeyboard::trigger()
 {
+    // Auto backlight timeout check (runs even if no key event)
+    if (kbBacklightAuto && digitalRead(KB_BL_PIN) == HIGH) {
+        uint32_t now = millis();
+        if (kbBacklightLastActivityMs != 0 && (now - kbBacklightLastActivityMs) > kbBacklightAutoTimeoutMs) {
+            setBacklight(false);
+        }
+    }
+
     uint8_t count = keyCount();
     if (count == 0)
         return;
@@ -96,6 +104,13 @@ void TDeckProKeyboard::pressed(uint8_t key)
 {
     if (state == Init || state == Busy) {
         return;
+    }
+
+    // Auto mode: any key activity turns on backlight and resets timer
+    if (kbBacklightAuto) {
+        kbBacklightLastActivityMs = millis();
+        if (digitalRead(KB_BL_PIN) == LOW)
+            setBacklight(true);
     }
     if (modifierFlag && (millis() - last_modifier_time > _TCA8418_MULTI_TAP_THRESHOLD)) {
         modifierFlag = 0;
@@ -151,8 +166,25 @@ void TDeckProKeyboard::released()
     uint32_t now = millis();
     last_tap = now;
 
-    if (TDeckProTapMap[last_key][modifierFlag % TDeckProTapMod[last_key]] == Key::BL_TOGGLE) {
+    auto mapped = TDeckProTapMap[last_key][modifierFlag % TDeckProTapMod[last_key]];
+
+    if (mapped == Key::BL_TOGGLE) {
         toggleBacklight();
+        // manual toggle counts as activity for auto mode
+        if (kbBacklightAuto)
+            kbBacklightLastActivityMs = millis();
+        return;
+    }
+
+    if (mapped == Key::BL_AUTO_TOGGLE) {
+        kbBacklightAuto = !kbBacklightAuto;
+        if (kbBacklightAuto) {
+            kbBacklightLastActivityMs = millis();
+            setBacklight(true);
+        } else {
+            kbBacklightLastActivityMs = 0;
+            setBacklight(false);
+        }
         return;
     }
 
