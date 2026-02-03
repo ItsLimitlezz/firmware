@@ -14,6 +14,10 @@ class KbI2cBase : public Observable<const InputEvent *>, public concurrency::OST
     explicit KbI2cBase(const char *name);
     void toggleBacklight(bool on);
 
+    // Regular T-Deck keyboard backlight auto mode (uses KB_BL_PIN)
+    void setKbBacklight(bool on);
+    void toggleKbBacklightAuto();
+
   protected:
     virtual int32_t runOnce() override;
 
@@ -26,4 +30,11 @@ class KbI2cBase : public Observable<const InputEvent *>, public concurrency::OST
     MPR121Keyboard MPRkeyboard;
     TCA8418KeyboardBase &TCAKeyboard;
     bool is_sym = false;
+
+    // Regular T-Deck keyboard backlight (GPIO)
+    bool kbBlInit = false;
+    bool kbBlOn = false;
+    bool kbBlAuto = false;
+    uint32_t kbBlLastActivityMs = 0;
+    static constexpr uint32_t kbBlAutoTimeoutMs = 10000;
 };

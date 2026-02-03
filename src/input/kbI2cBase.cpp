@@ -48,6 +48,32 @@ uint8_t read_from_14004(TwoWire *i2cBus, uint8_t reg, uint8_t *data, uint8_t len
     return readflag;
 }
 
+void KbI2cBase::setKbBacklight(bool on)
+{
+#if defined(KB_BL_PIN)
+    if (!kbBlInit) {
+        pinMode(KB_BL_PIN, OUTPUT);
+        kbBlInit = true;
+    }
+    digitalWrite(KB_BL_PIN, on ? HIGH : LOW);
+    kbBlOn = on;
+#else
+    (void)on;
+#endif
+}
+
+void KbI2cBase::toggleKbBacklightAuto()
+{
+    kbBlAuto = !kbBlAuto;
+    if (kbBlAuto) {
+        kbBlLastActivityMs = millis();
+        setKbBacklight(true);
+    } else {
+        kbBlLastActivityMs = 0;
+        setKbBacklight(false);
+    }
+}
+
 int32_t KbI2cBase::runOnce()
 {
     if (!i2cBus) {
@@ -85,6 +111,14 @@ int32_t KbI2cBase::runOnce()
         case ScanI2C::NO_I2C:
         default:
             i2cBus = 0;
+        }
+    }
+
+    // Regular T-Deck keyboard backlight auto timeout
+    if (kbBlAuto && kbBlOn) {
+        uint32_t now = millis();
+        if (kbBlLastActivityMs != 0 && (now - kbBlLastActivityMs) > kbBlAutoTimeoutMs) {
+            setKbBacklight(false);
         }
     }
 
@@ -390,6 +424,14 @@ int32_t KbI2cBase::runOnce()
 
         if (i2cBus->available()) {
             char c = i2cBus->read();
+
+            // Auto mode: any key activity turns on keyboard backlight and resets timer
+            if (kbBlAuto && c != 0x00) {
+                kbBlLastActivityMs = millis();
+                if (!kbBlOn)
+                    setKbBacklight(true);
+            }
+
             InputEvent e = {};
             e.inputEvent = INPUT_BROKER_NONE;
             e.source = this->_originName;
@@ -408,6 +450,16 @@ int32_t KbI2cBase::runOnce()
                     is_sym = false;
                     e.inputEvent = INPUT_BROKER_ANYKEY;
                     e.kbchar = 0x09; // TAB Scancode
+                } else {
+                    e.inputEvent = INPUT_BROKER_ANYKEY;
+                    e.kbchar = c;
+                }
+                break;
+            case 0x76: // letter v. Modifier makes it toggle KB backlight auto mode
+                if (is_sym) {
+                    is_sym = false;
+                    toggleKbBacklightAuto();
+                    e.inputEvent = INPUT_BROKER_NONE; // consume
                 } else {
                     e.inputEvent = INPUT_BROKER_ANYKEY;
                     e.kbchar = c;
