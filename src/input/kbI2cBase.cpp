@@ -81,6 +81,7 @@ void KbI2cBase::setKbBacklight(bool on)
 void KbI2cBase::toggleKbBacklightAuto()
 {
     kbBlAuto = !kbBlAuto;
+    kbBlLastOffAttemptMs = 0;
     if (kbBlAuto) {
         kbBlLastActivityMs = millis();
         setKbBacklight(true);
@@ -134,7 +135,14 @@ int32_t KbI2cBase::runOnce()
     if (kbBlAuto && kbBlOn) {
         uint32_t now = millis();
         if (kbBlLastActivityMs != 0 && (now - kbBlLastActivityMs) > kbBlAutoTimeoutMs) {
-            setKbBacklight(false);
+            // Rate limit OFF attempts. If the keyboard MCU ignores our I2C command,
+            // repeatedly sending it can cause visible flicker.
+            if (kbBlLastOffAttemptMs == 0 || (now - kbBlLastOffAttemptMs) > kbBlOffRetryCooldownMs) {
+                kbBlLastOffAttemptMs = now;
+                setKbBacklight(false);
+                // Treat as "off" from firmware perspective to avoid spamming OFF every loop.
+                kbBlOn = false;
+            }
         }
     }
 
