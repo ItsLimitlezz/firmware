@@ -36,5 +36,6 @@ class KbI2cBase : public Observable<const InputEvent *>, public concurrency::OST
     bool kbBlOn = false;
     bool kbBlAuto = false;
     uint32_t kbBlLastActivityMs = 0;
+    uint32_t kbBlIgnoreUntilMs = 0; // ignore self-induced I2C artifacts
     static constexpr uint32_t kbBlAutoTimeoutMs = 10000;
 };

@@ -59,6 +59,9 @@ void KbI2cBase::setKbBacklight(bool on)
         i2cBus->write(on ? 0x01 : 0x00);
         i2cBus->endTransmission();
         kbBlOn = on;
+        // Some T-Deck keyboards seem to echo state/bytes back into the read stream.
+        // Briefly ignore reads so auto mode doesn't immediately re-trigger.
+        kbBlIgnoreUntilMs = millis() + 250;
         return;
     }
 
@@ -444,13 +447,6 @@ int32_t KbI2cBase::runOnce()
                 LOG_DEBUG("TDECKKB key=0x%02X ('%c') is_sym=%d", (uint8_t)c, (c >= 32 && c <= 126) ? c : '.', is_sym);
             }
 
-            // Auto mode: any key activity turns on keyboard backlight and resets timer
-            if (kbBlAuto && c != 0x00) {
-                kbBlLastActivityMs = millis();
-                if (!kbBlOn)
-                    setKbBacklight(true);
-            }
-
             InputEvent e = {};
             e.inputEvent = INPUT_BROKER_NONE;
             e.source = this->_originName;
@@ -604,6 +600,17 @@ int32_t KbI2cBase::runOnce()
             }
 
             if (e.inputEvent != INPUT_BROKER_NONE) {
+                // Auto mode: only treat *real* key events as activity.
+                // Also ignore a short window after we send backlight I2C commands.
+                if (kbBlAuto) {
+                    uint32_t now = millis();
+                    if (now >= kbBlIgnoreUntilMs) {
+                        kbBlLastActivityMs = now;
+                        if (!kbBlOn)
+                            setKbBacklight(true);
+                    }
+                }
+
                 this->notifyObservers(&e);
             }
         }
