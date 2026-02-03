@@ -50,7 +50,20 @@ uint8_t read_from_14004(TwoWire *i2cBus, uint8_t reg, uint8_t *data, uint8_t len
 
 void KbI2cBase::setKbBacklight(bool on)
 {
+    // Regular T-Deck: keyboard is an I2C device at TDECK_KB_ADDR (0x55).
+    // The backlight appears to be handled by the keyboard MCU, so we attempt a best-effort I2C command.
+    // If the command is unsupported, it will simply be ignored.
+    if (kb_model == 0x10 && i2cBus && cardkb_found.address == TDECK_KB_ADDR) {
+        // Empirical attempt: write single byte 0x01 (on) / 0x00 (off)
+        i2cBus->beginTransmission((int)cardkb_found.address);
+        i2cBus->write(on ? 0x01 : 0x00);
+        i2cBus->endTransmission();
+        kbBlOn = on;
+        return;
+    }
+
 #if defined(KB_BL_PIN)
+    // Other devices (or custom wiring) might expose a GPIO backlight pin.
     if (!kbBlInit) {
         pinMode(KB_BL_PIN, OUTPUT);
         kbBlInit = true;
