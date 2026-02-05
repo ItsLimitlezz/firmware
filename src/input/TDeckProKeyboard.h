@@ -17,11 +17,6 @@ class TDeckProKeyboard : public TCA8418KeyboardBase
     void toggleBacklight(void);
 
   private:
-    // Keyboard backlight auto mode
-    bool kbBacklightAuto = false;
-    uint32_t kbBacklightLastActivityMs = 0;
-    static constexpr uint32_t kbBacklightAutoTimeoutMs = 10000;
-
     uint8_t modifierFlag;        // Flag to indicate if a modifier key is pressed
     uint32_t last_modifier_time; // Timestamp of the last modifier key press
     int8_t last_key;
